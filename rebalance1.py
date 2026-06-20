@@ -1,48 +1,71 @@
+# 1. 터미널을 예쁘게 꾸며주는 rich 라이브러리 설치
+pip install rich
+
+# 2. rebalance.py 파일을 가시성 극대화 버전으로 완전히 새로 쓰기
+cat << 'EOF' > rebalance.py
 import pandas as pd
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
 
 def calculate_rebalancing(current_assets, target_ratios):
-    # 1. 현재 총 평가금액 계산
+    console = Console()
     total_value = sum(current_assets.values())
     
-    rebalance_data = []
+    # 상단 요약 패널 구성
+    summary_text = f"[bold white]현재 총 자산:[/bold white] [bold cyan]{total_value:,.0f}원[/bold cyan]"
+    console.print(Panel(summary_text, title="📊 내 투자 포트폴리오 리밸런싱", expand=False))
     
-    print(f"=== 포트폴리오 리밸런싱 계산 결과 ===")
-    print(f"현재 총 자산: {total_value:,.0f}원\n")
+    # 예쁜 테이블 생성
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("종목명", style="bold dim", width=12, justify="center")
+    table.add_column("현재 비중", justify="right")
+    table.add_column("목표 비중", justify="right")
+    table.add_column("현재 금액", justify="right")
+    table.add_column("목표 금액", justify="right")
+    table.add_column("매매 주문", justify="left")
     
-    # 2. 종목별 비교 및 매매 금액 계산
+    total_buy = 0
+    total_sell = 0
+    
     for asset, current_val in current_assets.items():
         target_pct = target_ratios.get(asset, 0)
         target_val = total_value * (target_pct / 100)
         difference = target_val - current_val
         
         current_pct = (current_val / total_value) * 100
+        display_diff = int(difference)
         
-        # 매매 추천 메시지 생성
-        if difference > 0:
-            action = f"🟢 {difference:,.0f}원 추가 매수"
-        elif difference < 0:
-            action = f"🔴 {abs(difference):,.0f}원 매도"
+        # 매매 주문 색상 및 텍스트 설정
+        if display_diff > 0:
+            action = f"[bold green]🟢 {display_diff:,.0f}원 추가 매수[/bold green]"
+            total_buy += display_diff
+        elif display_diff < 0:
+            action = f"[bold red]🔴 {abs(display_diff):,.0f}원 매도[/bold red]"
+            total_sell += abs(display_diff)
         else:
-            action = "⚪ 유지"
+            action = "[white]⚪ 유지[/white]"
             
-        rebalance_data.append({
-            "종목명": asset,
-            "현재 비중(%)": f"{current_pct:.1f}%",
-            "목표 비중(%)": f"{target_pct:.1f}%",
-            "현재 금액": f"{current_val:,.0f}원",
-            "목표 금액": f"{target_val:,.0f}원",
-            "매매 주문": action
-        })
+        table.add_row(
+            asset,
+            f"{current_pct:.1f}%",
+            f"{target_pct:.1f}%",
+            f"{current_val:,.0f}원",
+            f"{target_val:,.0f}원",
+            action
+        )
+        
+    console.print(table)
     
-    # 보기 좋게 데이터프레임으로 변환 후 출력
-    df = pd.DataFrame(rebalance_data)
-    return df
+    # 하단 자금 흐름 요약 패널
+    flow_text = (
+        f"[bold red]▶ 총 매도 (확보 금액):[/bold red] [red]{total_sell:,.0f}원[/red]\n"
+        f"[bold green]▶ 총 매수 (필요 금액):[/bold green] [green]{total_buy:,.0f}원[/green]\n"
+        f"[bold yellow]▶ 외부 추가 입금 필요액:[/bold yellow] [yellow]{max(0, total_buy - total_sell):,.0f}원[/yellow]"
+    )
+    console.print(Panel(flow_text, title="💰 자금 흐름 요약", expand=False))
 
-# ========================================================
-# 데이터 입력부 (네가 나중에 데이터를 긁어서 여기에 넣으면 돼!)
-# ========================================================
-
-# 1. 현재 자산 상황 (원화 기준 평가금액)
+# 데이터 입력
 my_assets = {
     "DRAM": 5132527,
     "QLD": 4466057,
@@ -50,20 +73,21 @@ my_assets = {
     "CHAT": 2334077,
     "SPYM": 2138142,
     "SPMO": 1701757,
-    "SOL AI반도체TOP2플러스": 757620
+    "SOL": 757620
 }
 
-# 2. 네가 설정한 목표 비중 (%) - 합계가 100이 되도록 설정
 my_target = {
     "DRAM": 30.0,
     "SPYM": 30.0,
-    "SOL AI반도체TOP2플러스": 10.0,
+    "SOL": 10.0,
     "QLD": 5.0,
     "GGLL": 5.0,
-    "CHAT": 11.6,  # 기존 비율 유지 반영 값
-    "SPMO": 8.4    # 기존 비율 유지 반영 값
+    "CHAT": 11.6,
+    "SPMO": 8.4
 }
 
-# 프로그램 실행
-result_df = calculate_rebalancing(my_assets, my_target)
-print(result_df.to_string(index=False)) # 이 줄로 바꿔줘!
+calculate_rebalancing(my_assets, my_target)
+EOF
+
+# 3. 즉시 실행하여 가시성 확인하기!
+python rebalance.py
