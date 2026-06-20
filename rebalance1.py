@@ -66,5 +66,4 @@ my_target = {
 
 # 프로그램 실행
 result_df = calculate_rebalancing(my_assets, my_target)
-import notebook.repr_html  # 프리티 출력을 위한 세팅
-result_df
+print(result_df.to_string(index=False)) # 이 줄로 바꿔줘!
